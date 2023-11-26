@@ -1,0 +1,30 @@
+{
+  "name": "coderat",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "eslintConfig": {
+    "parserOptions": {
+      "sourceType": "module",
+      "ecmaVersion": "latest"
+    }
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.10",
+    "commander": "^11.1.0",
+    "debug": "^4.3.4",
+    "openai": "^4.20.0",
+    "tempy": "^3.1.0"
+  },
+  "devDependencies": {
+    "@types/adm-zip": "^0.5.5",
+    "@types/debug": "^4.1.12",
+    "@types/node": "^20.10.0"
+  }
+}
