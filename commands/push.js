@@ -35,8 +35,42 @@ async function createAssistant(name) {
   const assistant = await openai.beta.assistants.create({
     instructions: `You - the assistant - and I are working on a software project. The entire source code of the said project is attached in a zip file. I will be describing you a change that needs implementing and you will generate me a zip files with all changed files. You only need to include changed files, but the file structure and names must remain the same. You may ask questions or provide explanations if necessary in the message thread. But the end result must always be a zip with updated files.`,
     name,
-    tools: [{ type: "code_interpreter" }, { type: 'retrieval' }],
-    model: "gpt-4-1106-preview",
+    tools: [
+      { type: "code_interpreter" },
+      {
+        type: 'function',
+        function: {
+          name: 'definition',
+          description: "Get location of a symbol definition using lsp server that runs locally on a user's machine. Arguments point at the exact location of a symbol in a file (path, line number and column) and the return value is a location of its definition in some other file.",
+          parameters: {
+            type: 'object',
+            properties: {
+              file: { type: 'string' },
+              line: { type: 'number' },
+              character: { type: 'number' },
+            },
+            required: ['file', 'line', 'character'],
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'references',
+          description: "Get locations of all references to a symbol using lsp server that runs locally on a user's machine. Arguments point at the exact location of a symbol in a file (path, line number and column) and the return value is an array of locations in other files within the project workspace.",
+          parameters: {
+            type: 'object',
+            properties: {
+              file: { type: 'string' },
+              line: { type: 'number' },
+              character: { type: 'number' },
+            },
+            required: ['file', 'line', 'character'],
+          }
+        }
+      }
+    ],
+    model: "gpt-4-1106-preview"
   });
 
   log('Assistant created: %O', assistant)
