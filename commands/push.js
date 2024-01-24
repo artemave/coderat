@@ -68,6 +68,75 @@ async function createAssistant(name) {
             required: ['file', 'line', 'character'],
           }
         }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'applyWorkspaceEdit',
+          description: "Modify one or more files.",
+          parameters: {
+            type: 'array',
+            name: 'changes',
+            item_type: {
+              properties: {
+                create: {
+                  type: 'object',
+                  properties: {
+                    fileName: { type: 'string' },
+                    content: { type: 'string' },
+                  },
+                  required: ['fileName', 'content'],
+                },
+                modify: {
+                  type: 'object',
+                  properties: {
+                    fileName: { type: 'string' },
+                    range: {
+                      type: 'object',
+                      properties: {
+                        start: {
+                          type: 'object',
+                          properties: {
+                            line: { type: 'number' },
+                            character: { type: 'number' }
+                          },
+                          required: ['line', 'character'],
+                        },
+                        end: {
+                          type: 'object',
+                          properties: {
+                            line: { type: 'number' },
+                            character: { type: 'number' }
+                          },
+                          required: ['line', 'character'],
+                        },
+                        newText: { type: 'string' },
+                      },
+                      required: ['start', 'end', 'newText'],
+                    },
+                  },
+                  required: ['fileName', 'range'],
+                },
+                rename: {
+                  type: 'object',
+                  properties: {
+                    existingFileName: { type: 'string' },
+                    newFileName: { type: 'string' },
+                  },
+                  required: ['existingFileName', 'newFileName'],
+                },
+                delete: {
+                  type: 'object',
+                  properties: {
+                    fileName: { type: 'string' },
+                  },
+                  required: ['fileName'],
+                }
+              },
+            },
+            required: ['changes'],
+          }
+        }
       }
     ],
     model: "gpt-4-1106-preview"
