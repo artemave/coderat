@@ -2,9 +2,10 @@ import AdmZip from 'adm-zip'
 import OpenAI from 'openai'
 import fs from 'node:fs'
 import { execSync } from 'node:child_process'
-import { configPath, log } from './constants.js'
+import { configPath, log } from '../lib/constants.js'
 import { temporaryFile } from 'tempy'
 import { dirname } from 'node:path'
+import { functionSchemas } from '../lib/functionSchemas.js'
 
 const openai = new OpenAI();
 
@@ -37,107 +38,14 @@ async function createAssistant(name) {
     name,
     tools: [
       { type: "code_interpreter" },
-      {
-        type: 'function',
-        function: {
-          name: 'definition',
-          description: "Get location of a symbol definition using lsp server that runs locally on a user's machine. Arguments point at the exact location of a symbol in a file (path, line number and column) and the return value is a location of its definition in some other file.",
-          parameters: {
-            type: 'object',
-            properties: {
-              file: { type: 'string' },
-              line: { type: 'number' },
-              character: { type: 'number' },
-            },
-            required: ['file', 'line', 'character'],
+      ...functionSchemas.map(
+        schema => {
+          return {
+            type: 'function',
+            function: schema
           }
         }
-      },
-      {
-        type: 'function',
-        function: {
-          name: 'references',
-          description: "Get locations of all references to a symbol using lsp server that runs locally on a user's machine. Arguments point at the exact location of a symbol in a file (path, line number and column) and the return value is an array of locations in other files within the project workspace.",
-          parameters: {
-            type: 'object',
-            properties: {
-              file: { type: 'string' },
-              line: { type: 'number' },
-              character: { type: 'number' },
-            },
-            required: ['file', 'line', 'character'],
-          }
-        }
-      },
-      {
-        type: 'function',
-        function: {
-          name: 'applyWorkspaceEdit',
-          description: "Modify one or more files.",
-          parameters: {
-            type: 'array',
-            name: 'changes',
-            item_type: {
-              properties: {
-                create: {
-                  type: 'object',
-                  properties: {
-                    fileName: { type: 'string' },
-                    content: { type: 'string' },
-                  },
-                  required: ['fileName', 'content'],
-                },
-                modify: {
-                  type: 'object',
-                  properties: {
-                    fileName: { type: 'string' },
-                    range: {
-                      type: 'object',
-                      properties: {
-                        start: {
-                          type: 'object',
-                          properties: {
-                            line: { type: 'number' },
-                            character: { type: 'number' }
-                          },
-                          required: ['line', 'character'],
-                        },
-                        end: {
-                          type: 'object',
-                          properties: {
-                            line: { type: 'number' },
-                            character: { type: 'number' }
-                          },
-                          required: ['line', 'character'],
-                        },
-                        newText: { type: 'string' },
-                      },
-                      required: ['start', 'end', 'newText'],
-                    },
-                  },
-                  required: ['fileName', 'range'],
-                },
-                rename: {
-                  type: 'object',
-                  properties: {
-                    existingFileName: { type: 'string' },
-                    newFileName: { type: 'string' },
-                  },
-                  required: ['existingFileName', 'newFileName'],
-                },
-                delete: {
-                  type: 'object',
-                  properties: {
-                    fileName: { type: 'string' },
-                  },
-                  required: ['fileName'],
-                }
-              },
-            },
-            required: ['changes'],
-          }
-        }
-      }
+      )
     ],
     model: "gpt-4-1106-preview"
   });

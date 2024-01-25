@@ -19,6 +19,7 @@
     }
   },
   "dependencies": {
+    "@cfworker/json-schema": "^1.12.7",
     "adm-zip": "^0.5.10",
     "commander": "^11.1.0",
     "debug": "^4.3.4",

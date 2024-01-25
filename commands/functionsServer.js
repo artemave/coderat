@@ -1,5 +1,5 @@
 import fs from 'node:fs'
-import { configPath, log } from './constants.js'
+import { configPath, log } from '../lib/constants.js'
 import OpenAI from 'openai'
 import Functions from '../lib/Functions.js'
 
@@ -26,10 +26,15 @@ export default async function functionsServer() {
     const { data: [lastRun] } = await openai.beta.threads.runs.list(threadId)
 
     const tool_outputs = await Promise.all((lastRun?.required_action?.submit_tool_outputs?.tool_calls || []).map(async call => {
-      return {
-        tool_call_id: call.id,
-        output: await functions[call.function.name](JSON.parse(call.function.arguments))
+      const result = { tool_call_id: call.id }
+
+      try {
+        result.output = await functions[call.function.name](JSON.parse(call.function.arguments))
+      } catch (e) {
+        result.output = `Error occurred: ${e.message}`
       }
+
+      return result
     }))
 
     if (tool_outputs.length) {

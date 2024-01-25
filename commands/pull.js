@@ -1,6 +1,6 @@
 import AdmZip from 'adm-zip'
 import fs from 'node:fs'
-import { configPath, log } from './constants.js'
+import { configPath, log } from '../lib/constants.js'
 import OpenAI from 'openai'
 
 const openai = new OpenAI();
