@@ -1,12 +1,12 @@
 import fs from 'node:fs'
-import { configPath, log } from '../lib/constants.js'
+import { dataPath, log } from '../lib/constants.js'
 import OpenAI from 'openai'
 import Functions from '../lib/Functions.js'
 
 const openai = new OpenAI();
 
 function getThreadId() {
-  const config = JSON.parse(fs.readFileSync(configPath, { encoding: 'utf-8' }))
+  const config = JSON.parse(fs.readFileSync(dataPath, { encoding: 'utf-8' }))
   return config.threadId
 }
 

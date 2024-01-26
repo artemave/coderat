@@ -2,21 +2,26 @@ import AdmZip from 'adm-zip'
 import OpenAI from 'openai'
 import fs from 'node:fs'
 import { execSync } from 'node:child_process'
-import { configPath, log } from '../lib/constants.js'
+import { dataPath, log } from '../lib/constants.js'
 import { temporaryFile } from 'tempy'
 import { dirname } from 'node:path'
 import { functionSchemas } from '../lib/functionSchemas.js'
+import functionsServer from './functionsServer.js'
 
 const openai = new OpenAI();
 
 /**
  * @param {String[]} files
  */
-export default async function push(files) {
+export default async function push(files, options) {
   const uploadedFile = await pushArchive(files)
-  const assistant = await ensureAssistant(process.cwd().split('/').pop())
+  const assistant = await ensureAssistant(process.cwd().split('/').pop(), options)
   const thread = await createThread(uploadedFile)
   openThreadInTheBrowser({ assistant, thread })
+
+  if (options.withFunctions) {
+    await functionsServer()
+  }
 }
 
 /**
@@ -32,12 +37,16 @@ function createZip(files, zipPath) {
 /**
  * @param {string} name
  */
-async function createAssistant(name) {
-  const assistant = await openai.beta.assistants.create({
-    instructions: `You - the assistant - and I are working on a software project. The entire source code of the said project is attached in a zip file. I will be describing you a change that needs implementing and you will generate me a zip files with all changed files. You only need to include changed files, but the file structure and names must remain the same. You may ask questions or provide explanations if necessary in the message thread. But the end result must always be a zip with updated files.`,
-    name,
-    tools: [
-      { type: "code_interpreter" },
+async function createAssistant(name, options) {
+  const tools = [
+    { type: "code_interpreter" },
+  ]
+  let instructions = `You - the assistant - and I are experienced software developers working on a software project. The relevant source code of the said project is attached in a zip file at the start of a chat thread. During the chat I will be describing you changes that need to be implemented. You may ask questions or provide explanations if necessary in the message thread.`
+
+  if (options.withFunctions) {
+    instructions = `${instructions} Use functions to get a better understanding of the code. Then tell me what changes you're planning to perform. Once we're agreed on them, you can go ahead and use functions to apply the changes. You can then run tests, query diagnostics, etc. to make sure your changes are correct.`
+
+    tools.push(
       ...functionSchemas.map(
         schema => {
           return {
@@ -46,7 +55,15 @@ async function createAssistant(name) {
           }
         }
       )
-    ],
+    )
+  } else {
+    instructions = `${instructions} The end result must always be a zip with updated files. You only need to include changed files, but the file structure and names must remain the same (unless you add new files/directories).`
+  }
+
+  const assistant = await openai.beta.assistants.create({
+    instructions,
+    name,
+    tools,
     model: "gpt-4-1106-preview"
   });
 
@@ -89,7 +106,7 @@ async function createThread(uploadedFile) {
       }
     ]
   });
-  fs.writeFileSync(configPath, JSON.stringify({ threadId: thread.id }))
+  fs.writeFileSync(dataPath, JSON.stringify({ threadId: thread.id }))
 
   log(`Thread created: %O`, thread)
 
@@ -107,14 +124,14 @@ function openThreadInTheBrowser({ assistant, thread }) {
 /**
  * @param {string} name
  */
-async function ensureAssistant(name) {
+async function ensureAssistant(name, options) {
   return openai.beta.assistants.list().then(({ data }) => {
     const assistant = data.find(assistant => assistant.name === name)
     if (assistant) {
       log(`Using existing assistant: %O`, assistant)
       return assistant
     } else {
-      return createAssistant(name)
+      return createAssistant(name, options)
     }
   })
 }

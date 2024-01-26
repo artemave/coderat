@@ -2,9 +2,7 @@
 
 Generate code changes in your local code by talking to AI (using [openai Assistant API](https://platform.openai.com/docs/assistants/overview)).
 
-## Usage
-
-Install:
+## Install
 
 ```sh
 npm i -g coderat
@@ -12,10 +10,12 @@ npm i -g coderat
 
 You need `OPENAI_API_KEY` enviroment variable set. At the moment, you must have access to `gpt-4-1106-preview` model. This is not guaranteed even for a pro users. Buy more credits (10$ will do) if that's the case.
 
-Then from a project you're working on (let's assume it's a ruby project):
+## Usage
+
+From a project you're working on start a new chat session with a `push` command:
 
 ```sh
-coderat push **/*.rb
+coderat push $(git ls-files)
 ```
 
 This will pop open a browser window with the assistant playground. Your code is in there attached.
@@ -29,3 +29,13 @@ coderat pull
 ```
 
 Resume local development (e.g. `git diff`, run tests, etc.)
+
+### Arming AI with local tools
+
+coderat can optioanally expose a range of local tools (lsp navigation, lsp diagnostics, running tests, modifying files) for assistant to make use of. This way, the AI is more informed about your code and can perform and test incremental changes. To enable this pass a `--with-functions` options to `push`:
+
+```sh
+coderat push --with-functions $(git ls-files)
+```
+
+This command starts a server and does not exit. If during chat AI decides to use local tools, the server will take care of that.
