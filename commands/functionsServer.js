@@ -26,10 +26,14 @@ export default async function functionsServer() {
     const { data: [lastRun] } = await openai.beta.threads.runs.list(threadId)
 
     const tool_outputs = await Promise.all((lastRun?.required_action?.submit_tool_outputs?.tool_calls || []).map(async call => {
+      log('Processing tool_call: %O', call)
+
       const result = { tool_call_id: call.id }
 
       try {
-        result.output = await functions[call.function.name](JSON.parse(call.function.arguments))
+        const output = await functions[call.function.name](JSON.parse(call.function.arguments))
+        // Despite the docs, output seems to be required
+        result.output = JSON.stringify(output) || ''
       } catch (e) {
         result.output = `Error occurred: ${e.message}`
       }
@@ -38,6 +42,7 @@ export default async function functionsServer() {
     }))
 
     if (tool_outputs.length) {
+      log(`Tool outputs: ${ JSON.stringify(tool_outputs, null, 2) }`)
       await openai.beta.threads.runs.submitToolOutputs(threadId, lastRun.id, { tool_outputs })
     }
 

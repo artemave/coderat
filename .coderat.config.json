@@ -1,0 +1,4 @@
+{
+  "testCommand": "node test",
+  "nearestTestOption": "--fgrep"
+}

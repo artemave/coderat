@@ -1,2 +1,3 @@
 node_modules
 .test_autogen
+.coderat.data.json
