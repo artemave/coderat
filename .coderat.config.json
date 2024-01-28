@@ -1,4 +1,4 @@
 {
-  "testCommand": "node test",
+  "testCommand": "npm run test",
   "nearestTestOption": "--fgrep"
 }

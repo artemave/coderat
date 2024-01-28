@@ -41,7 +41,7 @@ async function createAssistant(name, options) {
   const tools = [
     { type: "code_interpreter" },
   ]
-  let instructions = `You - the assistant - and I are experienced software developers working on a software project. The relevant source code of the said project is attached in a zip file at the start of a chat thread. During the chat I will be describing you changes that need to be implemented. You may ask questions or provide explanations if necessary in the message thread. You must examine the code before doing anything else.`
+  let instructions = `You - the assistant - and I are experienced software developers working on a software project. The relevant source code of the said project is attached in a zip file at the start of a chat thread. During the chat I will be describing you changes that need to be implemented. You may ask questions or provide explanations if necessary in the message thread. You must examine the code before doing anything else. Also you must read and understand the project readme, to get and idea what the project is about.`
 
   if (options.withFunctions) {
     instructions = `${instructions} Use functions to get a better understanding of the code. Then tell me what changes you're planning to perform. Once we're agreed on them, you can go ahead and use functions to apply the changes. You can then run tests, query diagnostics, etc. to make sure your changes are correct.`
@@ -101,7 +101,7 @@ async function createThread(uploadedFile) {
     messages: [
       {
         role: 'user',
-        content: 'here is a zip with the source code',
+        content: 'Here is a zip with the source code.',
         file_ids: [ uploadedFile.id ],
       }
     ]
