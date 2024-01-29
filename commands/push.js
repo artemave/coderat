@@ -64,7 +64,7 @@ async function createAssistant(name, options) {
     instructions,
     name,
     tools,
-    model: "gpt-4-1106-preview"
+    model: 'gpt-4-turbo-preview'
   });
 
   log('Assistant created: %O', assistant)
