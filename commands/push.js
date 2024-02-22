@@ -12,12 +12,13 @@ const openai = new OpenAI();
 
 /**
  * @param {String[]} files
+ * @param {{ withFunctions: boolean; }} options
  */
 export default async function push(files, options) {
-  const uploadedFile = await pushArchive(files)
+  const uploadedArchiveFile = await pushArchive(files)
   const assistant = await ensureAssistant(process.cwd().split('/').pop(), options)
-  const thread = await createThread(uploadedFile)
-  openThreadInTheBrowser({ assistant, thread })
+  const threadId = await createThread({ assistant, uploadedFiles: [uploadedArchiveFile]})
+  openThreadInTheBrowser({ assistant, threadId })
 
   if (options.withFunctions) {
     await functionsServer()
@@ -36,15 +37,16 @@ function createZip(files, zipPath) {
 
 /**
  * @param {string} name
+ * @param {{ withFunctions: boolean; }} options
  */
 async function createAssistant(name, options) {
   const tools = [
     { type: "code_interpreter" },
   ]
-  let instructions = `You - the assistant - and I are experienced software developers working on a software project. The relevant source code of the said project is attached in a zip file at the start of a chat thread. During the chat I will be describing you changes that need to be implemented. You may ask questions or provide explanations if necessary in the message thread. You must examine the code before doing anything else. Also you must read and understand the project readme, to get and idea what the project is about.`
+  let instructions = `You - the assistant - and I are experienced software developers working on a software project. You are helping me to implement changes across the entire codebase. Each message thread represents one change. There is a zip file with source code attached to the first message in a thread. It also contains a ctags tags file that you must inspect to understand the project structure. You must also read and understand the project readme to get an idea of what the project is about. It's important that you read and understand readme and tags before anything else. Once you've understood the tags, you can optionally read individual files to further enhance your context. During the chat I will be describing the changes that need to be implemented. You may ask questions or provide explanations if necessary in the message thread.`
 
   if (options.withFunctions) {
-    instructions = `${instructions} Use functions to get a better understanding of the code. Then tell me what changes you're planning to perform. Once we're agreed on them, you can go ahead and use functions to apply the changes. You can then run tests, query diagnostics, etc. to make sure your changes are correct.`
+    instructions = `${instructions} Use 'functions' tools to get a better understanding of the code. Then tell me what changes you're planning to perform. Once we're agreed on them, you can go ahead and use functions to apply the changes. You can then run tests, query diagnostics, etc. to make sure your changes are correct.`
 
     tools.push(
       ...functionSchemas.map(
@@ -76,8 +78,12 @@ async function createAssistant(name, options) {
  * @param {String[]} files
  */
 async function pushArchive(files) {
+  const tagsFileExists = fs.existsSync('tags')
   const zipPath = temporaryFile({name: 'coderat.zip'})
-  createZip(files, zipPath)
+
+  execSync(`ctags ${files.join(' ')}`)
+
+  createZip(files.concat('./tags'), zipPath)
 
   const file = await openai.files.create({
     file: fs.createReadStream(zipPath),
@@ -88,41 +94,49 @@ async function pushArchive(files) {
 
   if (!process.env.DEBUG) {
     fs.rmSync(zipPath)
+
+    if (!tagsFileExists) {
+      fs.rmSync('./tags')
+    }
   }
 
   return file
 }
 
 /**
- * @param {OpenAI.Files.FileObject} uploadedFile
+ * @param {{ uploadedFiles: { id: string; }[]; assistant: { id: string; }; }} param0
  */
-async function createThread(uploadedFile) {
-  const thread = await openai.beta.threads.create({
-    messages: [
-      {
-        role: 'user',
-        content: 'Here is a zip with the source code.',
-        file_ids: [ uploadedFile.id ],
-      }
-    ]
+async function createThread({ uploadedFiles, assistant }) {
+  const run = await openai.beta.threads.createAndRun({
+    assistant_id: assistant.id,
+    thread: {
+      messages: [
+        {
+          role: 'user',
+          content: 'Inspect tags.txt file, readme and other files if needed in order to understand the purpose and the structure of the code.',
+          file_ids: uploadedFiles.map(f => f.id),
+        }
+      ]
+    }
   });
-  fs.writeFileSync(dataPath, JSON.stringify({ threadId: thread.id }))
+  fs.writeFileSync(dataPath, JSON.stringify({ threadId: run.thread_id }))
 
-  log(`Thread created: %O`, thread)
+  log(`Created thread and run: %O`, run)
 
-  return thread
+  return run.thread_id
 }
 
-function openThreadInTheBrowser({ assistant, thread }) {
+function openThreadInTheBrowser({ assistant, threadId }) {
   const osSpecifiOpenCmd = process.platform === 'darwin' ? 'open' : 'xdg-open'
 
   execSync(
-    `${osSpecifiOpenCmd} 'https://platform.openai.com/playground?assistant=${assistant.id}&thread=${thread.id}'`
+    `${osSpecifiOpenCmd} 'https://platform.openai.com/playground?assistant=${assistant.id}&thread=${threadId}'`
   );
 }
 
 /**
  * @param {string} name
+ * @param {{ withFunctions: boolean; }} options
  */
 async function ensureAssistant(name, options) {
   return openai.beta.assistants.list().then(({ data }) => {

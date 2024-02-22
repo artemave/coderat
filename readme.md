@@ -4,11 +4,13 @@ Generate code changes in your local code by talking to AI (using [openai Assista
 
 ## Install
 
+[ctags](https://github.com/universal-ctags/ctags) is required.
+
 ```sh
 npm i -g coderat
 ```
 
-You need `OPENAI_API_KEY` enviroment variable set. At the moment, you must have access to `gpt-4-1106-preview` model. This is not guaranteed even for a pro users. Buy more credits (10$ will do) if that's the case.
+You need `OPENAI_API_KEY` enviroment variable set. At the moment, you must have access to `gpt-4-turbo-preview` model. This is not guaranteed even for a pro users. Buy more credits (10$ will do) if that's the case.
 
 ## Usage
 
