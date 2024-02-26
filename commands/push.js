@@ -16,8 +16,11 @@ const openai = new OpenAI();
  */
 export default async function push(files, options) {
   const uploadedArchiveFile = await pushArchive(files)
+  const uploadedTagsFile = await pushTags(files)
+  const uploadedReadmeFiles = await pushFiles(files.filter(file => file.toLowerCase().endsWith('.md')))
+
   const assistant = await ensureAssistant(process.cwd().split('/').pop(), options)
-  const threadId = await createThread({ assistant, uploadedFiles: [uploadedArchiveFile]})
+  const threadId = await createThread({ assistant, files, uploadedFiles: [uploadedArchiveFile, uploadedTagsFile, ...uploadedReadmeFiles]})
   openThreadInTheBrowser({ assistant, threadId })
 
   if (options.withFunctions) {
@@ -42,6 +45,7 @@ function createZip(files, zipPath) {
 async function createAssistant(name, options) {
   const tools = [
     { type: "code_interpreter" },
+    { type: "retrieval" },
   ]
   let instructions = `You - the assistant - and I are experienced software developers working on a software project. You are helping me to implement changes across the entire codebase. Each message thread represents one change. There is a zip file with source code attached to the first message in a thread. It also contains a ctags tags file that you must inspect to understand the project structure. You must also read and understand the project readme to get an idea of what the project is about. It's important that you read and understand readme and tags before anything else. Once you've understood the tags, you can optionally read individual files to further enhance your context. During the chat I will be describing the changes that need to be implemented. You may ask questions or provide explanations if necessary in the message thread.`
 
@@ -78,42 +82,29 @@ async function createAssistant(name, options) {
  * @param {String[]} files
  */
 async function pushArchive(files) {
-  const tagsFileExists = fs.existsSync('tags')
   const zipPath = temporaryFile({name: 'coderat.zip'})
 
-  execSync(`ctags ${files.join(' ')}`)
+  createZip(files, zipPath)
 
-  createZip(files.concat('./tags'), zipPath)
-
-  const file = await openai.files.create({
-    file: fs.createReadStream(zipPath),
-    purpose: "assistants",
-  });
+  const [file] = await pushFiles([zipPath])
 
   log(`Zip created: %O`, zipPath)
 
   if (!process.env.DEBUG) {
     fs.rmSync(zipPath)
-
-    if (!tagsFileExists) {
-      fs.rmSync('./tags')
-    }
   }
 
   return file
 }
 
-/**
- * @param {{ uploadedFiles: { id: string; }[]; assistant: { id: string; }; }} param0
- */
-async function createThread({ uploadedFiles, assistant }) {
+async function createThread({ files, uploadedFiles, assistant }) {
   const run = await openai.beta.threads.createAndRun({
     assistant_id: assistant.id,
     thread: {
       messages: [
         {
           role: 'user',
-          content: 'Inspect tags.txt file, readme and other files if needed in order to understand the purpose and the structure of the code.',
+          content: 'Inspect tags.txt, readme(s), and other files from the archive if needed in order to understand the purpose and the structure of the code. Here is the file structure to get you started:\n\n```\n' + files.join('\n'),
           file_ids: uploadedFiles.map(f => f.id),
         }
       ]
@@ -148,4 +139,34 @@ async function ensureAssistant(name, options) {
       return createAssistant(name, options)
     }
   })
+}
+
+async function pushTags(files) {
+  const tagsFileExists = fs.existsSync('tags')
+
+  execSync(`ctags ${files.join(' ')}`)
+  fs.cpSync('tags', './tags.txt')
+
+  const [file] = await pushFiles(['tags.txt'])
+
+  log(`Zip created ./tags.txt`)
+
+  if (!process.env.DEBUG) {
+    fs.rmSync('./tags.txt')
+
+    if (!tagsFileExists) {
+      fs.rmSync('./tags')
+    }
+  }
+
+  return file
+}
+
+async function pushFiles(files) {
+  return Promise.all(files.map(file => (
+    openai.files.create({
+      file: fs.createReadStream(file),
+      purpose: "assistants",
+    })
+  )))
 }
