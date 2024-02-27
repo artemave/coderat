@@ -88,8 +88,6 @@ async function pushArchive(files) {
 
   const [file] = await pushFiles([zipPath])
 
-  log(`Zip created: %O`, zipPath)
-
   if (!process.env.DEBUG) {
     fs.rmSync(zipPath)
   }
@@ -142,31 +140,26 @@ async function ensureAssistant(name, options) {
 }
 
 async function pushTags(files) {
-  const tagsFileExists = fs.existsSync('tags')
-
-  execSync(`ctags ${files.join(' ')}`)
-  fs.cpSync('tags', './tags.txt')
+  execSync(`ctags -f tags.txt ${files.join(' ')}`)
 
   const [file] = await pushFiles(['tags.txt'])
 
-  log(`Zip created ./tags.txt`)
-
   if (!process.env.DEBUG) {
     fs.rmSync('./tags.txt')
-
-    if (!tagsFileExists) {
-      fs.rmSync('./tags')
-    }
   }
 
   return file
 }
 
 async function pushFiles(files) {
-  return Promise.all(files.map(file => (
-    openai.files.create({
-      file: fs.createReadStream(file),
+  return Promise.all(files.map(path => {
+    const file = openai.files.create({
+      file: fs.createReadStream(path),
       purpose: "assistants",
     })
-  )))
+
+    log(`Pushed file: ${path}`)
+
+    return file
+  }))
 }
